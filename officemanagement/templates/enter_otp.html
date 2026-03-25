@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex justify-center mt-10">
+    <div class="bg-white p-8 rounded shadow-xl w-full max-w-md">
+        <h2 class="text-xl font-bold text-center mb-4">Verify OTP</h2>
+        <form id="otpForm">
+            {% csrf_token %}
+            <input type="hidden" name="email" value="{{ email }}">
+            
+            <p class="text-sm text-center text-gray-600 mb-4">Code sent to: <b>{{ email }}</b></p>
+
+            <input type="text" name="otp" placeholder="000000" maxlength="6" required
+                   class="w-full border-2 p-3 rounded text-center text-2xl tracking-widest outline-none focus:border-blue-500">
+            
+            <p id="error-otp" class="text-red-500 text-xs mt-2 hidden text-center"></p>
+            
+            <button type="submit" id="btn" class="w-full bg-blue-600 text-white py-3 rounded mt-4 font-bold">
+                Verify OTP
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('otpForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btn');
+        btn.disabled = true;
+
+        const formData = new FormData(e.target);
+        const res = await fetch('/reset-password/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken'), 'Accept': 'application/json' }
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            window.location.href = data.next_url; 
+        } else {
+            const err = document.getElementById('error-otp');
+            err.innerText = data.otp ? data.otp[0] : (data.email ? "Email missing" : "Invalid code");
+            err.classList.remove('hidden');
+            btn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

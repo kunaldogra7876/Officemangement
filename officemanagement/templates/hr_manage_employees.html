@@ -1,0 +1,191 @@
+    {% extends "base.html" %}
+
+    {% block content %}
+    <div class="p-8 bg-gray-50 min-h-screen">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">
+                    {% if showing_deleted %} Archived/Rejected Employees {% else %} Managed Employees {% endif %}
+                </h1>
+                <p class="text-gray-500">Managing {{ employees|length }} records</p>
+            </div>
+
+            <div class="flex gap-3">
+                <a href="?show_deleted={% if showing_deleted %}false{% else %}true{% endif %}" 
+                class="px-5 py-2 rounded-lg font-semibold transition-all {% if showing_deleted %} bg-blue-100 text-blue-700 hover:bg-blue-200 {% else %} bg-gray-200 text-gray-700 hover:bg-gray-300 {% endif %}">
+                    {% if showing_deleted %} View Active Employees {% else %} View Archived/Rejected {% endif %}
+                </a>
+            </div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-8">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Upload Multiple Employees</h2>
+        
+            <form action="/bulk-upload/" method="POST" enctype="multipart/form-data" class="flex flex-col md:flex-row items-center gap-4">
+                {% csrf_token %}
+                
+                <!-- File Input -->
+                <div class="w-full">
+                    <input type="file" name="file" required
+                        class="w-full text-sm text-gray-600
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100 cursor-pointer">
+                </div>
+        
+                <!-- Upload Button -->
+                <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow-sm transition-all duration-200">
+                    Upload Excel
+                </button>
+            </form>
+        
+            <!-- Helper Text -->
+            <p class="text-xs text-gray-400 mt-3">
+                Upload .xlsx file with columns: <strong>username, email, password, department, skills</strong>
+            </p>
+        </div>  
+
+        {% comment %} {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-700 border border-green-200{% else %}bg-amber-100 text-amber-700 border border-amber-200{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %} {% endcomment %}
+
+        <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-800 text-white">
+                    <tr>
+                        <th class="p-4">Employee</th>
+                        <th class="p-4">Department</th>
+                        <th class="p-4">Skills</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for emp in employees %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="p-4">
+                            <div class="font-bold text-slate-700">{{ emp.username }}</div>
+                            <div class="text-xs text-gray-500">{{ emp.email }}</div>
+                        </td>
+                        <td class="p-4 text-sm text-gray-600">
+                            {{ emp.department.name|default:"Unassigned" }}
+                        </td>
+                        <td class="p-4">
+                            <div class="flex flex-wrap gap-1">
+                                {% for skill in emp.skills.all %}
+                                    <span class="px-2 py-0.5 bg-blue-50 text-blue-600 text-xs rounded-full border border-blue-100">{{ skill.name }}</span>
+                                {% empty %}
+                                    <span class="text-gray-400 text-xs italic">No skills</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="p-4 text-sm">
+                            {% if emp.is_deleted %}
+                                <span class="px-2 py-1 bg-red-100 text-red-600 rounded text-xs font-bold uppercase">Archived</span>
+                            {% else %}
+                                <span class="px-2 py-1 bg-green-100 text-green-600 rounded text-xs font-bold uppercase">Active</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-center">
+                            <div class="flex justify-center gap-4">
+                                {% if not emp.is_deleted %}
+                                <button onclick="openEditModal('{{ emp.id }}', '{{ emp.username }}', '{{ emp.department.id }}', [{% for s in emp.skills.all %}'{{ s.id }}',{% endfor %}])" 
+                                        class="text-blue-600 hover:text-blue-800 text-sm font-semibold">
+                                    Edit
+                                </button>
+                                {% endif %}
+
+                                <form method="POST" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ emp.id }}">
+                                    {% if emp.is_deleted %}
+                                        <input type="hidden" name="action" value="restore">
+                                        <button type="submit" class="text-green-600 hover:underline text-sm font-semibold">Restore</button>
+                                    {% else %}
+                                        <input type="hidden" name="action" value="soft_delete">
+                                        <button type="submit" class="text-red-500 hover:underline text-sm font-semibold">Deactivate</button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="p-10 text-center text-gray-400 italic">No employees found in this view.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-8">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">Edit Employee: <span id="modalUsername" class="text-blue-600"></span></h2>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" id="modalUserId">
+                <input type="hidden" name="action" value="update">
+
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Department</label>
+                    <select name="department" id="modalDept" class="w-full border p-2 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Skills (Hold Ctrl/Cmd to select multiple)</label>
+                    <select name="skills" id="modalSkills" multiple class="w-full border p-2 rounded-md h-32 focus:ring-2 focus:ring-blue-500">
+                        {% for skill in all_skills %}
+                            <option value="{{ skill.id }}">{{ skill.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-200 rounded-md font-semibold">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700">Save Changes</button>
+                </div>
+            </form>
+            <form action="/bulk-upload/" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <input type="file" name="file" required>
+        
+        <button type="submit">Upload Excel</button>
+    </form>
+        </div>
+    </div>
+
+    <script>
+        function openEditModal(userId, username, deptId, skillIds) {
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('modalUserId').value = userId;
+            document.getElementById('modalUsername').innerText = username;
+            
+            document.getElementById('modalDept').value = deptId || "";
+            
+            const skillsSelect = document.getElementById('modalSkills');
+            Array.from(skillsSelect.options).forEach(option => {
+                option.selected = skillIds.includes(option.value);
+            });
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+    </script>
+    {% endblock %}
