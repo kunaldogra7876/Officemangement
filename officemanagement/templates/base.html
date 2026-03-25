@@ -1,0 +1,157 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OfficeHub | {% block title %}Management{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-out { opacity: 0; transition: opacity 0.5s ease-out; }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        {% block css %} {% endblock %}
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-900 min-h-screen flex flex-col">
+
+    <nav class="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="/" class="font-bold bg-white  p-1  text-2xl tracking-tight text-blue-400 hover:text-blue-300 transition">
+                <img src="{% static 'images/office.png' %}" alt="Image" height= "40" width="40">
+            </a>
+            
+            <div class="flex items-center space-x-6 text-sm font-medium">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'index' %}" class="hover:text-blue-400 transition">Office Chat</a>
+                    <a href = "/leave-management/" class="text-red-400 hover:text-blue-300 transition flex items-center gap-1"> Leave</a>
+                    
+                    {% if user.is_hr %} 
+                        <a href="{% url 'hr_management' %}" class="{% if request.resolver_match.url_name == 'hr_management' %}text-emerald-400 font-bold{% else %}text-emerald-500/80 hover:text-emerald-400{% endif %} transition">
+                            Employee Dashboard
+                        </a>
+                        <a href="/register/" class="text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
+                            <span class="text-lg font-bold">+</span> Register Employee
+                        </a>
+                        {% comment %} <a href = "/leave-management/" class="text-red-400 hover:text-blue-300 transition flex items-center gap-1"> Leave</a> {% endcomment %}
+                    {% endif %}
+
+                    {% if user.is_superuser %}
+                        <a href="/register/" class="text-amber-400 hover:text-amber-300 transition flex items-center gap-1">
+                            <span class="text-lg font-bold">+</span> Register HR
+                        </a>
+                    {% endif %}
+
+                    <div class="flex items-center gap-4 ml-4 pl-4 border-l border-slate-700">
+                        <div class="text-right">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">
+                                {% if user.is_superuser %}Superadmin{% elif user.is_hr %}HR Admin{% else %}Employee{% endif %}
+                            </p>
+                            <p class="text-blue-300 text-xs font-semibold">{{ user.username }}</p>
+                        </div>
+                        <a href="/logout/" onclick="confirmLogout()" ...>
+
+                            <a href="javascript:void(0)" onclick="confirmLogout()" class="bg-slate-800 hover:bg-rose-900/40 hover:text-rose-400 px-3 py-2 rounded-lg transition text-gray-400 border border-transparent hover:border-rose-900/50">
+                                Logout
+                                <i class="fas fa-sign-out-alt"></i>
+                            </a>
+                    </div>
+                {% else %}
+                    <a href="/login/" class="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg font-bold transition shadow-md shadow-blue-900/20">
+                        Sign In
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto max-w-6xl px-6 py-8 flex-grow">
+        
+        <div id="message-center" class="fixed top-24 right-6 w-80 z-[60] space-y-3 pointer-events-none">
+            {% if messages %}
+                {% for message in messages %}
+                <div class="p-4 rounded-xl shadow-2xl border-l-4 bg-white flex items-start gap-3 animate-slide-in pointer-events-auto
+                    {% if message.tags == 'success' %}border-emerald-500 text-emerald-800{% else %}border-rose-500 text-rose-800{% endif %}">
+                    <span class="font-bold">{% if message.tags == 'success' %}✓{% else %}✕{% endif %}</span>
+                    <p class="text-sm font-bold">{{ message }}</p>
+                </div>
+                {% endfor %}
+            {% endif %}
+            
+            <div id="js-messages" class="space-y-3"></div>
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="text-center py-8 text-gray-400 text-xs border-t border-gray-100 bg-white mt-10">
+        <p>&copy; 2026 OfficeHub Management System. All Rights Reserved.</p>
+        <p class="mt-1 text-gray-300 italic">Connected as: {{ user.email|default:"Guest" }}</p>
+    </footer>
+
+    <script>
+        function confirmLogout() {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You will need to login again to access your dashboard.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: '#64748b',  
+                confirmButtonText: 'Yes, Logout',
+                cancelButtonText: 'Stay Logged In',
+                reverseButtons: true,
+                background: '#ffffff',
+                borderRadius: '1.5rem',
+                customClass: {
+                    title: 'text-slate-800 font-bold',
+                    popup: 'rounded-[2rem] shadow-2xl border border-slate-100',
+                    confirmButton: 'rounded-xl px-6 py-3 font-bold',
+                    cancelButton: 'rounded-xl px-6 py-3 font-bold'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "{% url 'logout' %}";
+                }
+            });
+        }
+        
+        function showMessage(text, type = 'success') {
+            const container = document.getElementById('js-messages');
+            const isSuccess = type === 'success';
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `p-4 rounded-xl shadow-2xl border-l-4 bg-white flex items-start gap-3 animate-slide-in pointer-events-auto
+                               ${isSuccess ? 'border-emerald-500 text-emerald-800' : 'border-rose-500 text-rose-800'}`;
+            
+            msgDiv.innerHTML = `
+                <span class="font-bold">${isSuccess ? '✓' : '✕'}</span>
+                <p class="text-sm font-bold">${text}</p>
+            `;
+            
+            container.appendChild(msgDiv);
+            
+            setTimeout(() => {
+                msgDiv.classList.add('fade-out');
+                setTimeout(() => msgDiv.remove(), 500);
+            }, 4500);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const djangoMsgs = document.querySelectorAll('#message-center > div:not(#js-messages)');
+            djangoMsgs.forEach(msg => {
+                setTimeout(() => {
+                    msg.classList.add('fade-out');
+                    setTimeout(() => msg.remove(), 500);
+                }, 5000);
+            });
+        });
+    </script>
+</body>
+</html>
